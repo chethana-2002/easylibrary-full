@@ -113,20 +113,9 @@ db.serialize(() => {
       configs.forEach(c => stmtConf.run(c));
       stmtConf.finalize();
 
-      db.run("INSERT INTO books VALUES ('b1', 'Computer Networks', 'Andrew S. Tanenbaum', 'ENG', 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=300')");
-      db.run("INSERT INTO book_copies VALUES ('cp1', 'b1', '1', 'A', '1', '1', 'borrowed')");
-      db.run("INSERT INTO book_copies VALUES ('cp2', 'b1', '1', 'A', '1', '2', 'available')");
-
-      // Seed an Overdue Record
-      const overdueDate = new Date();
-      overdueDate.setDate(overdueDate.getDate() - 25); // borrowed 25 days ago
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() - 11); // 11 days overdue
-      
-      db.run("INSERT INTO borrow_records VALUES ('br1', 'cp1', 'u2', ?, ?, null, 0, 0, 'active')", [overdueDate.toISOString(), dueDate.toISOString()]);
-    }
+      }
+    });
   });
-});
 
 /* =========================================
    API ROUTES

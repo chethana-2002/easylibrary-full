@@ -22,8 +22,8 @@ export default function LibrarianPortal({ user }) {
   const [reservations, setReservations] = useState([]);
 
   const [newCopy, setNewCopy] = useState({ book_id: '', floor: '', section: '', shelf: '', row: '' });
-  const [newConfig, setNewConfig] = useState({ type: 'category', name: '' });
-  const [newBook, setNewBook] = useState({ title: '', author: '', category: 'ENG', cover: '', copies_count: 1, floor: '', section: '', shelf: '' });
+  const [newConfig, setNewConfig] = useState({ type: 'category', name: '', parentSection: '' });
+  const [newBook, setNewBook] = useState({ title: '', author: '', category: '', cover: '', copies_count: 1, floor: '', section: '', shelf: '' });
 
   const navigate = useNavigate();
 
@@ -117,8 +117,15 @@ export default function LibrarianPortal({ user }) {
 
   const handleAddConfig = async (e) => {
     e.preventDefault();
+    
+    let submitName = newConfig.name;
+    if (newConfig.type === 'shelf') {
+      if (!newConfig.parentSection) return showNotification('Please select a parent section for the shelf.');
+      submitName = `${newConfig.parentSection}::${newConfig.name}`;
+    }
+
     await fetch('http://localhost:5000/api/config', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig)
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({...newConfig, name: submitName})
     });
     showNotification('Layout Config added!');
     setNewConfig({ ...newConfig, name: '' });
@@ -136,7 +143,7 @@ export default function LibrarianPortal({ user }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newBook)
     });
     showNotification('Master Book & Copies added successfully!');
-    setNewBook({ title: '', author: '', category: 'ENG', cover: '', copies_count: 1, floor: '', section: '', shelf: '' });
+    setNewBook({ title: '', author: '', category: '', cover: '', copies_count: 1, floor: '', section: '', shelf: '' });
     fetchBooks();
   };
 
@@ -423,8 +430,9 @@ export default function LibrarianPortal({ user }) {
                     <input required type="text" value={newBook.author} onChange={e => setNewBook({...newBook, author: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-white text-lg outline-none focus:border-secondary" placeholder="Author Name" />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Category Section</label>
-                    <select value={newBook.category} onChange={e => setNewBook({...newBook, category: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-white text-lg outline-none focus:border-secondary">
+                    <label className="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Subject Category</label>
+                    <select required value={newBook.category} onChange={e => setNewBook({...newBook, category: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-white text-lg outline-none focus:border-secondary">
+                      <option value="" className="bg-black">Select Category...</option>
                       {config?.category?.map(c => <option key={c.id} value={c.name} className="bg-black">{c.name}</option>)}
                     </select>
                   </div>
@@ -459,7 +467,10 @@ export default function LibrarianPortal({ user }) {
                       <label className="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Shelf No.</label>
                       <select required value={newBook.shelf} onChange={e => setNewBook({...newBook, shelf: e.target.value})} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white text-lg outline-none focus:border-secondary">
                         <option value="" className="bg-black">Select...</option>
-                        {config?.shelf?.map(c => <option key={c.id} value={c.name} className="bg-black">{c.name}</option>)}
+                        {config?.shelf?.filter(c => !newBook.section || c.name.startsWith(newBook.section + '::')).map(c => {
+                          const shelfLabel = c.name.includes('::') ? c.name.split('::')[1] : c.name;
+                          return <option key={c.id} value={shelfLabel} className="bg-black">{shelfLabel}</option>;
+                        })}
                       </select>
                     </div>
                   </div>
@@ -529,6 +540,15 @@ export default function LibrarianPortal({ user }) {
                     <option value="shelf">Shelf Number</option>
                   </select>
                 </div>
+                {newConfig.type === 'shelf' && (
+                  <div className="flex-1 w-full">
+                    <label className="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Parent Section</label>
+                    <select required value={newConfig.parentSection} onChange={e => setNewConfig({...newConfig, parentSection: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-4 text-white text-lg outline-none">
+                      <option value="" className="bg-black">Select Section</option>
+                      {config?.section?.map(c => <option key={c.id} value={c.name} className="bg-black">{c.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="flex-1 w-full">
                   <label className="block text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Value/Name</label>
                   <input required type="text" value={newConfig.name} onChange={e => setNewConfig({...newConfig, name: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-4 text-white text-lg outline-none" placeholder="e.g. ARTS or 1" />
@@ -544,7 +564,7 @@ export default function LibrarianPortal({ user }) {
                   <div className="space-y-3">
                     {config[type].map(item => (
                       <div key={item.id} className="flex justify-between items-center bg-black/40 px-4 py-3 rounded-lg text-base text-white">
-                        <span className="font-bold">{item.name}</span>
+                        <span className="font-bold">{item.name.replace('::', ' - ')}</span>
                         <button onClick={() => handleDeleteConfig(item.id)} className="text-red-400 hover:text-red-300 font-bold bg-white/5 px-3 py-1 rounded">&times;</button>
                       </div>
                     ))}

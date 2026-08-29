@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { mockFloors } from '../data/mockData';
 import { MapPin, Navigation2, ArrowLeft, Layers, Library } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -17,8 +16,14 @@ export default function MapView() {
   const [activeFloor, setActiveFloor] = useState('1');
   const [targetBook, setTargetBook] = useState(null);
   const [books, setBooks] = useState([]);
+  const [config, setConfig] = useState({ floor: [], section: [], shelf: [] });
 
   useEffect(() => {
+    fetch('http://localhost:5000/api/config')
+      .then(res => res.json())
+      .then(setConfig)
+      .catch(err => console.error(err));
+
     fetch('http://localhost:5000/api/books')
       .then(res => res.json())
       .then(data => {
@@ -34,12 +39,10 @@ export default function MapView() {
       .catch(err => console.error("Error fetching books:", err));
   }, [bookId]);
 
-  // Map Data Simulation
-  const sections = ['A', 'B', 'C', 'D'];
-  const shelvesPerSection = [1, 2, 3, 4, 5];
+  const sections = config.section.map(s => s.name);
   
   const isTargetSection = (section) => targetBook?.section === section;
-  const isTargetShelf = (section, shelf) => isTargetSection(section) && parseInt(targetBook?.shelf) === shelf;
+  const isTargetShelf = (section, shelf) => isTargetSection(section) && targetBook?.shelf === shelf;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -48,28 +51,26 @@ export default function MapView() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate(-1)}
-            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
+          <div className="h-10 w-px bg-white/10"></div>
           <div>
-            <h2 className="text-2xl font-bold glow-text text-white flex items-center gap-2">
-              <Layers className="text-accent" /> Interactive Mapping System
-            </h2>
-            <p className="text-sm text-slate-400">Real-time routing to physical archive locations.</p>
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Library className="text-primary"/> Library Map View</h2>
+            <p className="text-sm text-slate-400">Interactive floor plan and routing</p>
           </div>
         </div>
         
-        {/* Floor Selector */}
-        <div className="flex bg-black/40 p-1.5 rounded-xl border border-white/5">
-          {mockFloors.map(floor => (
+        <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+          {config.floor.map(floor => (
             <button
               key={floor.id}
-              onClick={() => setActiveFloor(floor.id)}
+              onClick={() => setActiveFloor(floor.name)}
               className={cn(
-                "px-5 py-2 rounded-lg text-sm font-medium transition-all duration-300",
-                activeFloor === floor.id 
-                  ? "bg-secondary/30 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)] border border-secondary/40" 
+                "px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-300 flex items-center gap-2",
+                activeFloor === floor.name
+                  ? "bg-primary text-white shadow-[0_0_15px_rgba(217,119,6,0.4)]"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
               )}
             >
@@ -144,7 +145,7 @@ export default function MapView() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none"></div>
           
           <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-            <h3 className="text-xl font-bold text-slate-200">Map Layout: {mockFloors.find(f => f.id === activeFloor)?.name}</h3>
+            <h3 className="text-xl font-bold text-slate-200">Map Layout: {activeFloor}</h3>
             <div className="flex items-center gap-5 text-sm bg-black/40 px-4 py-2 rounded-xl border border-white/5">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-md bg-slate-800 border border-slate-600"></div> 
@@ -158,7 +159,9 @@ export default function MapView() {
           </div>
 
           <div className="flex-1 bg-[#06090F]/80 rounded-2xl border border-white/5 p-8 grid grid-cols-2 gap-x-20 gap-y-12 overflow-y-auto shadow-inner relative">
-            {sections.map(section => (
+            {sections.map(section => {
+              const sectionShelves = config.shelf.filter(sh => !sh.name.includes('::') || sh.name.startsWith(section + '::')).map(sh => sh.name.includes('::') ? sh.name.split('::')[1] : sh.name);
+              return (
               <div 
                 key={section} 
                 className={cn(
@@ -173,7 +176,7 @@ export default function MapView() {
                 </div>
                 
                 <div className="flex flex-col gap-3.5 mt-3">
-                  {shelvesPerSection.map(shelf => {
+                  {sectionShelves.map(shelf => {
                     const isTarget = isTargetShelf(section, shelf) && activeFloor === targetBook?.floor;
                     return (
                       <div 
@@ -198,9 +201,10 @@ export default function MapView() {
                       </div>
                     )
                   })}
+                  {sectionShelves.length === 0 && <p className="text-slate-500 text-xs text-center">No shelves</p>}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           
         </div>
